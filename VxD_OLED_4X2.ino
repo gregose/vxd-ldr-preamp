@@ -1,15 +1,20 @@
-#define I2C_ADDRESS 0x3C  // OLED I2C address, you can use i2c scanner sketch to find it
+#include <PinChangeInt.h>
+#include <EEPROM.h>
+#include <Adafruit_MCP23008.h>
+#include <SSD1306AsciiWire.h>
+
+#include "fonts/bar.h"
+#include "fonts/line.h"
+#include "fonts/modern.h"
+
+#include "LDRstruct.h"
+
+#define OLED_I2C_ADDRESS 0x3C  // OLED I2C address, you can use i2c scanner sketch to find it
 
 #define TEST_BOARD 6
 
-#include <PinChangeInt.h>
-#include <EEPROM.h>
-#include "Adafruit_MCP23008.h"
-#include "LDRstruct.h"
-
-#include "SSD1306AsciiWire.h"
-#define OLED_TYPE Adafruit128x64  // For SSD1306 OLED - exactly one type must be defined, comment out one of the two
-//#define OLED_TYPE SH1106_128x64     // For SH1106 OLED
+//#define OLED_TYPE Adafruit128x64  // For SSD1306 OLED - exactly one type must be defined, comment out one of the two
+#define OLED_TYPE SH1106_128x64     // For SH1106 OLED
 SSD1306AsciiWire oled;
 
 #pragma region defines
@@ -29,7 +34,7 @@ const char* const inputName[INPUTCOUNT] = {"OPT DAC",  "USB DAC 1",  "USB DAC 2"
 #define OUTPUTCOUNT 2   //** number of outputs, 0 to 4. If 0, comment out the next line.
 const char* const outputName[OUTPUTCOUNT] = { "LINE", "HEADPHONE" }; //** each name maximum 9 characters. There must be exactly OUTPUTCOUNT names in the list.
 
-char msgWelcome1[] = "ZDRAWCKE";                      //** <-- maximum 20 characters (line 1)
+char msgWelcome1[] = "Ose Audio Labs";                //** <-- maximum 20 characters (line 1)
 char msgWelcome2[] = "VxD LDR";                       //** <-- maximum 20 characters (line 2)
 char msgWelcome3[] = "passive optical";               //** <-- maximum 20 characters (line 3)
 char msgWelcome4[] = "preamplifier";                  //** <-- maximum 20 characters (line 4)
@@ -76,19 +81,19 @@ char msgNoCalib[] = "Please calibrate";               //** <-- maximum 19 charac
 #define logoFont X11fixed7x14B
 
 /******* LDR measured values *******/
-#define LDR_R1 10000          //** precisely measured value of R1 resistor (default: 10000 ohm)
-#define LDR_R18 10000         //** precisely measured value of R18 resistor (default: 10000 ohm)
+#define LDR_R1 9995          //** precisely measured value of R1 resistor (default: 10000 ohm)
+#define LDR_R18 10004         //** precisely measured value of R18 resistor (default: 10000 ohm)
 
 // if any measured value is > 200 ohm, replace the LDR. Normal values are around 100 ohm.
 
 // test board 6, 5LN01C
 
 #if TEST_BOARD == 6
-#define LDR_VOLTAGE 4.93       //** precisely measured value of the +5V supply (with decimal point. Default: 5.0)
-#define LDR_LSE_MIN 83        //** measured value of left series LDR R at maximum current
-#define LDR_LSH_MIN 114       //** measured value of left shunt LDR R at maximum current
-#define LDR_RSE_MIN 83       //** measured value of right series LDR R at maximum current
-#define LDR_RSH_MIN 130       //** measured value of right shunt LDR R at maximum current
+#define LDR_VOLTAGE 5.0       //** precisely measured value of the +5V supply (with decimal point. Default: 5.0)
+#define LDR_LSE_MIN 79        //** measured value of left series LDR R at maximum current
+#define LDR_LSH_MIN 133       //** measured value of left shunt LDR R at maximum current
+#define LDR_RSE_MIN 77       //** measured value of right series LDR R at maximum current
+#define LDR_RSH_MIN 77       //** measured value of right shunt LDR R at maximum current
 
 
 // test board 5, 5LN01C
@@ -302,7 +307,7 @@ unsigned long mil_onRemoteKey = 0; // Stores time of last remote command
 
 /******* ENCODER *******/
 volatile int encoderPos = 0;       // encoder clicks
-
+//Rotary rotary = Rotary(PIN_ENC1, PIN_ENC2);
 
 /******* TIMING *******/
 unsigned long mil_onButton;    // Stores last time for switch debounce
@@ -423,19 +428,19 @@ byte doSelfTest() {
 /******* Calibration *******/
 #pragma region Calibration
 byte doCalibration() {
-#ifndef DEBUG // turn calibration part of if debugging is on
-calibStarted = millis();
-//** local vars
-float att;
-unsigned long LSE_target, LSH_target, RSE_target, RSH_target, targetL0, targetR0;
-byte pwL0, pwL1, pwR0, pwR1 = 0;
-word iL0, iL1, iR0, iR1 = 0;
-unsigned long rL0, rL1, rR0, rR1 = 0;
-byte rangeL, rangeR;
-byte dpw, drm;
-bool foundL, foundR = false;
-bool reloopL, reloopR = false;
-bool nojumpL, nojumpR = false;
+#ifndef DEBUG // turn calibration part off if debugging is on
+  calibStarted = millis();
+  //** local vars
+  float att;
+  unsigned long LSE_target, LSH_target, RSE_target, RSH_target, targetL0, targetR0;
+  byte pwL0, pwL1, pwR0, pwR1 = 0;
+  word iL0, iL1, iR0, iR1 = 0;
+  unsigned long rL0, rL1, rR0, rR1 = 0;
+  byte rangeL, rangeR;
+  byte dpw, drm;
+  bool foundL, foundR = false;
+  bool reloopL, reloopR = false;
+  bool nojumpL, nojumpR = false;
 
   //	setLCDMaxLight();
   state = STATE_CALIB;
@@ -448,7 +453,7 @@ bool nojumpL, nojumpR = false;
 
   tick = 0;
   percent = 0;
-
+  detachInterrupts();
   setCalibrationRelays(ON);
 
   //** get minimum R in HIGH R range
@@ -939,6 +944,7 @@ bool nojumpL, nojumpR = false;
   volume = VOL_DEFAULT;
   saveCalibration();
   oled.clear();
+  attachInterrupts();
   toRunState();
   drawRunDisplay();    // redraw full screen again
   setVolume(volume);
@@ -1127,7 +1133,7 @@ bool nojumpL, nojumpR = false;
   // RELAYS and I/O control
   #pragma region Relays
 
-  byte relayMap[6] = { PIN_EXT_R1, PIN_EXT_R2, PIN_EXT_R3, PIN_EXT_R4, PIN_EXT_R5, PIN_EXT_R6};
+  byte relayMap[6] = { PIN_EXT_R1, PIN_EXT_R2, PIN_EXT_R3, PIN_EXT_R4, PIN_EXT_R5, PIN_EXT_R6 };
 
   void setCalibrationRelays(byte val) {
     mcp.digitalWrite(PIN_EXT_CALIB, val);
@@ -1167,74 +1173,6 @@ bool nojumpL, nojumpR = false;
     }
   }
   #pragma endregion
-
-
-
-  /* Rotary encoder handler for arduino.
-
-     Copyright 2011 Ben Buxton. Licenced under the GNU GPL Version 3.
-     Contact: bb@cactii.net
-
-     Quick implementation of rotary encoder routine.
-
-     More info: http://www.buxtronix.net/2011/10/rotary-encoders-done-properly.html
-
-  */
-
-  // Arduino pins the encoder is attached to. Attach the center to ground.  - Already defined
-  //#define PIN_ENC1 2
-  //#define PIN_ENC2 3
-
-  // Pins should be setup like this (already done in our code setup
-  // define to enable weak pullups.
-  //#define ENABLE_PULLUPS
-  /* Call this once in setup(). */
-  /*void rotary_init() {
-    pinMode(PIN_ENC1, INPUT);
-    pinMode(PIN_ENC2, INPUT);
-    #ifdef ENABLE_PULLUPS
-    digitalWrite(PIN_ENC1, HIGH);
-    digitalWrite(PIN_ENC2, HIGH);
-    #endif
-    }*/
-
-  // Half-step mode?
-  //#define HALF_STEP
-#define DIR_CCW 0x10
-#define DIR_CW 0x20
-
-#ifdef HALF_STEP
-// Use the half-step state table (emits a code at 00 and 11)
-const unsigned char ttable[6][4] = {
-{0x3 , 0x2, 0x1,  0x0}, {0x23, 0x0, 0x1,  0x0},
-{0x13, 0x2, 0x0,  0x0}, {0x3 , 0x5, 0x4,  0x0},
-{0x3 , 0x3, 0x4, 0x10}, {0x3 , 0x5, 0x3, 0x20}
-};
-#else
-// Use the full-step state table (emits a code at 00 only)
-const unsigned char ttable[7][4] = {
-{0x0, 0x2, 0x4, 0x0}, {0x3, 0x0, 0x1, 0x10},
-{0x3, 0x2, 0x0, 0x0}, {0x3, 0x2, 0x1, 0x0},
-{0x6, 0x0, 0x4, 0x0}, {0x6, 0x5, 0x0, 0x20},
-{0x6, 0x5, 0x4, 0x0},
-};
-#endif
-
-
-  volatile unsigned char encoderState = 0;
-
-
-
-  /* Read input pins and process for events. Call this either from a
-     loop or an interrupt (eg pin change or timer).
-
-     Returns 0 on no event, otherwise 0x80 or 0x40 depending on the direction.
-  */
-  unsigned char rotary_process() {
-    unsigned char pinstate = (digitalRead(PIN_ENC2) << 1) | digitalRead(PIN_ENC1);
-    encoderState = ttable[encoderState & 0xf][pinstate];
-    return (encoderState & 0x30);
-  }
 
   /*
     The following function defines a new pulseIn function because the pulseIn function in the Arduino
@@ -1487,10 +1425,10 @@ const unsigned char ttable[7][4] = {
   }
 
 
-  //void eraseEEPROM() {
-  //	for (byte i = 0; i < 1024; i++) //1024 max
-  //		EEPROM.write(i, 255);
-  //}
+  void eraseEEPROM() {
+  	for (byte i = 0; i < EEPROM.length(); i++)
+  		EEPROM.write(i, 255);
+  }
   #pragma endregion
 
 
@@ -1498,31 +1436,29 @@ const unsigned char ttable[7][4] = {
   ///////////////////////////////////////////////////////////////////////////////////////
   //  Encoder routines
   #pragma region Encoder
-  void attachInterrupts() {
-    PCintPort::attachInterrupt(PIN_ENC2, &doEncoderB, CHANGE);
-    attachInterrupt(0, doEncoderA, CHANGE);
+
+  void detachInterrupts() {
+    detachInterrupt(digitalPinToInterrupt(PIN_ENC1));
+    PCintPort::detachInterrupt(PIN_ENC2);
   }
+  
+  void attachInterrupts() {
+    attachInterrupt(digitalPinToInterrupt(PIN_ENC1), encoderHandler, CHANGE);
+    PCintPort::attachInterrupt(PIN_ENC2, &encoderHandler, CHANGE);
+  }
+  
+  //const int lookup_table[16] = {0,-1,1,0,1,0,0,-1,-1,0,0,1,0,1,-1,0};
+  const uint8_t encoder_lookup_table[16] = {1,2,0,1,0,1,1,2,2,1,1,0,1,0,2,1};
+  volatile uint8_t encoder_state = 0;
 
   void encoderHandler() {
-    unsigned char result = rotary_process();
-    if (result) {
-      if (result == DIR_CCW)
-        encoderPos++;
-      else
-        encoderPos--;
-    }
+    encoder_state = (encoder_state << 2) | (digitalRead(PIN_ENC2) << 1) | digitalRead(PIN_ENC1);      
+    encoderPos += (1 - encoder_lookup_table[encoder_state & 0b1111]);
   }
 
-  void doEncoderA() {
-    encoderHandler();
-  }
 
-  void doEncoderB() {
-    encoderHandler();
-  }
+  
   #pragma endregion
-
-
 
   ///////////////////////////////////////////////////////////////////////////////////////
   //  Pin modes
@@ -1714,7 +1650,7 @@ PRINT("   Vol:"); PRINT(vol); PRINT("  data:"); PRINTLN(dataR[i].i_SH);
     void setup() {
       Wire.begin();
 
-      oled.begin(&OLED_TYPE, I2C_ADDRESS);
+      oled.begin(&OLED_TYPE, OLED_I2C_ADDRESS);
 
       oled.set400kHz();
       oled.clear();
@@ -1731,7 +1667,7 @@ PRINT("   Vol:"); PRINT(vol); PRINT("  data:"); PRINTLN(dataR[i].i_SH);
 
 
 #ifdef DEBUG
-Serial.begin(57600);
+      Serial.begin(57600);
 #endif
 
       // display welcome message
@@ -1746,6 +1682,8 @@ Serial.begin(57600);
       oled.print (msgWelcome4);
       delay(2000);
 
+      //eraseEEPROM();
+
       //test if the relays and LDRs are powered
       if (getRLSE() + getRRSE() + getRLSH() + getRRSH() > LDR_FULL_MAX * 4) {
         errc = 20;
@@ -1758,397 +1696,397 @@ Serial.begin(57600);
       else
       {
         notCalibrated = !loadCalibration();
-        if (notCalibrated)
+        if (notCalibrated) {
           toSetupState();
-
+        }
         else {
 #ifdef DELAY
-setLSE(50); setRSE(50);
-setLSH(50); setRSH(50);
-doDelay();
+          setLSE(50); setRSE(50);
+          setLSH(50); setRSH(50);
+          doDelay();
 #endif
-loadIOValues();
-state = STATE_IO;
-oled.clear();
-drawRunDisplay();
-setInput();
-setOutput();
-isMuted = volume == 0;
-setVolume(volume);
-delay(250);
-mcp.digitalWrite(PIN_EXT_CALIB, 0);
-setMute(volume);
-toRunState();
-}
-}
-
-
-          //         mil_onAction = millis(); // begin counting to dim the LCD
-
-          mcp.digitalWrite(PIN_EXT_BIAS, HIGH); // turn biasing voltage on
-
-          btnReleased = true;
-          btnPressed = false;
-          IRPressed = false;
-          attachInterrupts(); // start reading encoder
-          encoderPos = 0;
+          loadIOValues();
+          state = STATE_IO;
+          oled.clear();
+          drawRunDisplay();
+          setInput();
+          setOutput();
+          isMuted = volume == 0;
+          setVolume(volume);
+          delay(250);
+          mcp.digitalWrite(PIN_EXT_CALIB, 0);
+          setMute(volume);
+          toRunState();
         }
-        #pragma endregion
+      }
+
+      //         mil_onAction = millis(); // begin counting to dim the LCD
+
+      mcp.digitalWrite(PIN_EXT_BIAS, HIGH); // turn biasing voltage on
+
+      btnReleased = true;
+      btnPressed = false;
+      IRPressed = false;
+
+      encoderPos = 0;
+      attachInterrupts(); // start reading encoder
+    }
+  #pragma endregion
 
 
-        ////////////////////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////////////
-        //         LOOP
-        ////////////////////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////////////
-        #pragma region loop
-        void loop() {
+  ////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////////
+  //         LOOP
+  ////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////////
+  #pragma region loop
+  void loop() {
 
-          #pragma region powerOff
-          // Detect power off
-          if (state == STATE_RUN) {
-            long vcc;
-            ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-            delay(2);
-            ADCSRA |= _BV(ADSC);
-            while (bit_is_set(ADCSRA, ADSC));
-            vcc = ADCL;
-            vcc |= ADCH << 8;
-            vcc = 1126400L / vcc;
-            if (vcc > 3000 && vcc < 4600) {
-              PRINT("power down...\n");                                // ***
-              mcp.digitalWrite(PIN_EXT_BIAS, LOW);
-              setLSE(0); setRSE(0);
-              setLSH_Range(LOW); setRSH_Range(LOW);
-              setLSH(255); setRSH(255);
-              saveIOValues();
-              state = STATE_OFF;
+    #pragma region powerOff
+    // Detect power off
+    if (state == STATE_RUN) {
+      long vcc;
+      ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+      delay(2);
+      ADCSRA |= _BV(ADSC);
+      while (bit_is_set(ADCSRA, ADSC));
+      vcc = ADCL;
+      vcc |= ADCH << 8;
+      vcc = 1126400L / vcc;
+      if (vcc > 3000 && vcc < 4600) {
+        PRINT("power down...\n");                                // ***
+        mcp.digitalWrite(PIN_EXT_BIAS, LOW);
+        setLSE(0); setRSE(0);
+        setLSH_Range(LOW); setRSH_Range(LOW);
+        setLSH(255); setRSH(255);
+        saveIOValues();
+        state = STATE_OFF;
+      }
+    }
+    #pragma endregion
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // IR Remote
+    #pragma region loop_remote
+    if (millis() - mil_onRemote > TIME_IGNOREREMOTE_CMD && digitalRead(PIN_REMOTE) == LOW && (state == STATE_RUN || state == STATE_IO)) {
+
+      IRkey = getIRkey();
+      if (IRkey != 255 && IRkey != 2) {
+
+        mil_onAction = millis();
+        isIRrepeat = IRkey == 0;
+
+        // Prevent repeating if a code has not been received for a while.
+        if ((millis() - mil_onRemoteKey) > 500)  {
+          isIRrepeat = 0;
+        }
+
+        if (isIRrepeat && (previousIRkey == cIR_UP || previousIRkey == cIR_DOWN))  // Repeat the specified keys
+          IRkey = previousIRkey;
+        else
+          previousIRkey = IRkey;
+
+        mil_onRemoteKey = millis();
+
+        PRINT("IR: "); PRINTLN(IRkey);
+
+        switch (IRkey) {
+          case cIR_UP:  // volume up
+            encoderPos++;
+            break;
+          case cIR_DOWN:  // volume down
+            encoderPos--;
+            break;
+          case cIR_LEFT:
+            if (INPUTCOUNT > 1) {
+              chan_in = chan_in - 1 + (chan_in == 0) * INPUTCOUNT;
+              storeLast();
+              setInput();
             }
-          }
-          #pragma endregion
-
-
-          /////////////////////////////////////////////////////////////////////////////////////
-          // IR Remote
-          #pragma region loop_remote
-          if (millis() - mil_onRemote > TIME_IGNOREREMOTE_CMD && digitalRead(PIN_REMOTE) == LOW && (state == STATE_RUN || state == STATE_IO)) {
-
-            IRkey = getIRkey();
-            if (IRkey != 255 && IRkey != 2) {
-
-              mil_onAction = millis();
-              isIRrepeat = IRkey == 0;
-
-              // Prevent repeating if a code has not been received for a while.
-              if ((millis() - mil_onRemoteKey) > 500)  {
-                isIRrepeat = 0;
+            break;
+          case cIR_RIGHT:
+            if (INPUTCOUNT > 1) {
+              chan_in++;
+              chan_in %= INPUTCOUNT;
+              storeLast();
+              setInput();
+            }
+            break;
+          case cIR_PLAY:
+            toggleMute();
+            break;
+          case cIR_CENTER:
+            if (lastInput == prevInput)break;
+            chan_in = prevInput;
+            storeLast();
+            setInput();
+            break;
+          case cIR_MENU:
+            if (state == STATE_IO) {
+              toRunState();
+              break;
+            }
+            else {
+              if (OUTPUTCOUNT > 1) {
+                chan_out++;
+                chan_out = chan_out % OUTPUTCOUNT;
+                setOutput();
               }
+              break;
+            }
+        } // end SWITCH
 
-              if (isIRrepeat && (previousIRkey == cIR_UP || previousIRkey == cIR_DOWN))  // Repeat the specified keys
-                IRkey = previousIRkey;
+        if (!isIRrepeat) {
+          mil_onRemote = millis();
+        }
+      }
+
+    }
+    else
+      IRkey = 255;
+    #pragma endregion
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // Rotary encoder was turned
+    #pragma region loop_encoder
+    //encoderRotating = true;
+    if (encoderPos != 0)
+    {
+      mil_onAction = millis();
+      //		startLCDFadeIn();
+
+
+      /** encoder rotated in volume mode **/
+      if (state == STATE_RUN) {
+        volume += encoderPos;
+        if (volume > 250)	// byte overflow...
+          volume = 0;
+        if (volume > VOL_MAX_STEP)
+          volume = VOL_MAX_STEP;
+        setVolume(volume);
+      }
+
+
+      /** encoder rotated in channel select mode **/
+      else if (state == STATE_IO) {
+        switch (selIO % 2) {
+          case SEL_INPUT:
+            if (INPUTCOUNT > 0) {
+              chan_in += encoderPos;
+              /*if (encoderPos > 0 )
+                chan_in++;
+                if (encoderPos < 0)
+                chan_in--;*/
+              if (chan_in == 255) {
+                chan_in = INPUTCOUNT - 1;
+                //              storeLast();
+              }
+              else {
+                chan_in %= INPUTCOUNT;
+                //              storeLast();
+              }
+              setInput();
+            }
+            break;
+
+          case SEL_OUTPUT:
+            if (OUTPUTCOUNT > 0) {
+              chan_out += encoderPos;
+              if (chan_out == 255)
+                chan_out = OUTPUTCOUNT - 1;
               else
-                previousIRkey = IRkey;
-
-              mil_onRemoteKey = millis();
-
-              PRINT("IR: "); PRINTLN(IRkey);
-
-              switch (IRkey) {
-                case cIR_UP:  // volume up
-                  encoderPos++;
-                  break;
-                case cIR_DOWN:  // volume down
-                  encoderPos--;
-                  break;
-                case cIR_LEFT:
-                  if (INPUTCOUNT > 1) {
-                    chan_in = chan_in - 1 + (chan_in == 0) * INPUTCOUNT;
-                    storeLast();
-                    setInput();
-                  }
-                  break;
-                case cIR_RIGHT:
-                  if (INPUTCOUNT > 1) {
-                    chan_in++;
-                    chan_in %= INPUTCOUNT;
-                    storeLast();
-                    setInput();
-                  }
-                  break;
-                case cIR_PLAY:
-                  toggleMute();
-                  break;
-                case cIR_CENTER:
-                  if (lastInput == prevInput)break;
-                  chan_in = prevInput;
-                  storeLast();
-                  setInput();
-                  break;
-                case cIR_MENU:
-                  if (state == STATE_IO) {
-                    toRunState();
-                    break;
-                  }
-                  else {
-                    if (OUTPUTCOUNT > 1) {
-                      chan_out++;
-                      chan_out = chan_out % OUTPUTCOUNT;
-                      setOutput();
-                    }
-                    break;
-                  }
-              } // end SWITCH
-
-              if (!isIRrepeat) {
-                mil_onRemote = millis();
-              }
+                chan_out %= OUTPUTCOUNT;
+              setOutput();
             }
-
-          }
-          else
-            IRkey = 255;
-          #pragma endregion
-
-
-
-          /////////////////////////////////////////////////////////////////////////////////////
-          // Rotary encoder was turned
-          #pragma region loop_encoder
-          //encoderRotating = true;
-          if (encoderPos != 0)
-          {
-            mil_onAction = millis();
-            //		startLCDFadeIn();
-
-
-            /** encoder rotated in volume mode **/
-            if (state == STATE_RUN) {
-              volume += encoderPos;
-              if (volume > 250)	// byte overflow...
-                volume = 0;
-              if (volume > VOL_MAX_STEP)
-                volume = VOL_MAX_STEP;
-              setVolume(volume);
-            }
-
-
-            /** encoder rotated in channel select mode **/
-            else if (state == STATE_IO) {
-              switch (selIO % 2) {
-                case SEL_INPUT:
-                  if (INPUTCOUNT > 0) {
-                    chan_in += encoderPos;
-                    /*if (encoderPos > 0 )
-                      chan_in++;
-                      if (encoderPos < 0)
-                      chan_in--;*/
-                    if (chan_in == 255) {
-                      chan_in = INPUTCOUNT - 1;
-                      //              storeLast();
-                    }
-                    else {
-                      chan_in %= INPUTCOUNT;
-                      //              storeLast();
-                    }
-                    setInput();
-                  }
-                  break;
-
-                case SEL_OUTPUT:
-                  if (OUTPUTCOUNT > 0) {
-                    chan_out += encoderPos;
-                    if (chan_out == 255)
-                      chan_out = OUTPUTCOUNT - 1;
-                    else
-                      chan_out %= OUTPUTCOUNT;
-                    setOutput();
-                  }
-              }
-            }
-
-
-            /** encoder rotated in "setup" mode **/
-            else if (state == STATE_SETUP) {
-              selSetup += encoderPos;
-              selSetup %= 4;
-              setupMenu();
-            }
-            encoderPos = 0; // Reset the flag
-          }  // End of encoder rotation
-          #pragma endregion
-
-
-          //////////////////////////////////////////////////////////////////////////////////////
-          // Button press
-          //////////////////////////////////////////////////////////////////////////////////////
-          #pragma region loop_button
-          btnPressed = digitalRead(PIN_BTN) == LOW && btnReleased;
-          IRPressed = IRkey == ((millis() - mil_onButton) > TIME_IRBOUNCE);
-
-          ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-          ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-          if (((millis() - mil_btnHold) > BTN_HOLD_TIME) && !btnReleased && state == STATE_RUN) {     // hold mod ///////////
-            toSetupState();                                                                           // hold mod ///////////
-          }                                                                                           // hold mod ///////////
-          ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-          ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-          if (btnPressed) {
-            mil_btnHold = millis ();                                      // hold mod
-            btnReleased = false;
-            mil_onButton = mil_onAction = millis();    // Start debounce timer
-
-            /** button pressed in normal mode **/
-            if (state == STATE_RUN)
-              if (INPUTCOUNT <= 1 && OUTPUTCOUNT <= 1) {
-                if (btnPressed) {
-                  toSetupState();
-                }
-              }
-              else {
-                oled.setFont(runFont);
-                oled.setCursor(25, 0);
-                oled.print(char(127));
-                toIOState();
-              }
-            /** button pressed in IO mode **/
-            else if (state == STATE_IO) {
-              if (selIO == SEL_INPUT && OUTPUTCOUNT > 1) {
-                selIO = SEL_OUTPUT;
-                oled.setFont(runFont);
-                oled.setCursor(24, 0);
-                oled.print(">");
-                oled.setCursor(96, 2);
-                oled.print(char(127));
-                toIOState();
-              }
-              else {
-                storeLast();
-                toRunState();
-              }
-
-            }
-
-            /** button pressed in setup menu **/
-            else if (btnPressed && state == STATE_SETUP) {
-              switch (selSetup) {
-                case SEL_BIAS:
-                  setMaxResistanceMode();
-                  break;
-                case SEL_MEAS:
-                  setMinResistanceMode();
-                  break;
-                case SEL_CALIB:
-                  errc = doCalibration();
-                  if (errc == 100) {
-                    oled.setCursor (20, 20);
-                    oled.clear();
-                    oled.setFont(textFont);
-                    oled.print(msgAbort);
-                    delay(3000);
-                    toRunState();
-                    setVolume(volume);
-                    setCalibrationRelays(OFF);
-                  }
-                  else if (errc > 0) {
-                    toErrorState();
-                  }
-                  break;
-                case SEL_EXIT:
-                  selSetup = SEL_BIAS;
-                  if (!notCalibrated) {
-                    oled.clear();
-                    toRunState();
-                    drawRunDisplay();
-                  }
-                  else {
-                    oled.setCursor (20, 3);
-                    oled.clear();
-                    oled.setFont(textFont);
-                    oled.print(msgNoCalib);
-                    delay(1000);
-                    toSetupState();
-                  }
-                  break;
-              }
-            }
-
-            /** button pressed in adjust mode **/
-            else if (btnPressed && state == STATE_CALIB)
-              toSetupState();
-          }
-          #pragma endregion
-
-
-
-          /////////////////////////////////////////////////////////////////////////////////////
-          // timing
-          #pragma region loop_timing
-          //** timeout selection/menu
-          if ((state == STATE_IO) && millis() - mil_onAction > TIME_EXITSELECT * 1000) {
-            saveIOValues();  //btnpress after modifying I/O, save to EEPROM
-            oled.setFont(textFont);
-            toRunState();
-          }
-
-
-          //** encoder button debounce/release
-          if (digitalRead(PIN_BTN) == HIGH && millis() - mil_onButton > TIME_SWITCHBOUNCE) {
-            btnReleased = true;
-            //mil_onButton = millis();
-          }
-          #pragma endregion
-
-
-          /////////////////////////////////////////////////////////////////////////////////////
-          // feedback to maintain LDR current
-          #pragma region loop_feedback
-          if ((millis() - mil_onSetLDR > TIME_DACSETTLE) && state == STATE_RUN && volume < VOL_MAX_STEP && volume > 1) {
-
-            // LSE
-            word sample = getILSE();
-            deltaSample = int(dataL[volume - 2].i_SE & 32767) - sample;
-            deltaPW = deltaSample > 0 ? 1 : -1;
-            if (deltaPW * deltaSample > abs(deltaPW * getDeltaI(dataL[volume - 2].i_SE) - deltaSample) && dataL[volume - 2].pw_SE > 0 && dataL[volume - 2].pw_SE < 255) {
-              dataL[volume - 2].pw_SE += deltaPW;
-              setLSE(dataL[volume - 2].pw_SE);
-            }
-
-
-            // RSE
-            sample = getIRSE();
-            deltaSample = int(dataR[volume - 2].i_SE & 32767) - sample;
-            deltaPW = deltaSample > 0 ? 1 : -1;
-            if (deltaPW * deltaSample > abs(deltaPW * getDeltaI(dataR[volume - 2].i_SE) - deltaSample) && dataR[volume - 2].pw_SE > 0 && dataR[volume - 2].pw_SE < 255) {
-              dataR[volume - 2].pw_SE += deltaPW;
-              setRSE(dataR[volume - 2].pw_SE);
-            }
-
-
-            // LSH
-            sample = getILSH();
-            deltaSample = int(dataL[volume - 2].i_SH & 32767) - sample;
-            deltaPW = deltaSample > 0 ? 1 : -1;
-            if (deltaPW * deltaSample > abs(deltaPW * getDeltaI(dataL[volume - 2].i_SH) - deltaSample) && dataL[volume - 2].pw_SH > 0 && dataL[volume - 2].pw_SH < 255) {
-              dataL[volume - 2].pw_SH += deltaPW;
-              setLSH(dataL[volume - 2].pw_SH);
-            }
-
-
-            // RSH
-            sample = getIRSH();
-            deltaSample = int(dataR[volume - 2].i_SH & 32767) - sample;
-            deltaPW = deltaSample > 0 ? 1 : -1;
-            if (deltaPW * deltaSample > abs(deltaPW * getDeltaI(dataR[volume - 2].i_SH) - deltaSample) && dataR[volume - 2].pw_SH > 0 && dataR[volume - 2].pw_SH < 255) {
-              dataR[volume - 2].pw_SH += deltaPW;
-              setRSH(dataR[volume - 2].pw_SH);
-            }
-
-            mil_onSetLDR = millis();
-          }
-          #pragma endregion
-
         }
-        #pragma endregion
+      }
+
+
+      /** encoder rotated in "setup" mode **/
+      else if (state == STATE_SETUP) {
+        selSetup += encoderPos;
+        selSetup %= 4;
+        setupMenu();
+      }
+      encoderPos = 0; // Reset the flag
+    }  // End of encoder rotation
+    #pragma endregion
+
+
+    //////////////////////////////////////////////////////////////////////////////////////
+    // Button press
+    //////////////////////////////////////////////////////////////////////////////////////
+    #pragma region loop_button
+    btnPressed = digitalRead(PIN_BTN) == LOW && btnReleased;
+    IRPressed = IRkey == ((millis() - mil_onButton) > TIME_IRBOUNCE);
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    if (((millis() - mil_btnHold) > BTN_HOLD_TIME) && !btnReleased && state == STATE_RUN) {     // hold mod ///////////
+      toSetupState();                                                                           // hold mod ///////////
+    }                                                                                           // hold mod ///////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    if (btnPressed) {
+      mil_btnHold = millis ();                                      // hold mod
+      btnReleased = false;
+      mil_onButton = mil_onAction = millis();    // Start debounce timer
+
+      /** button pressed in normal mode **/
+      if (state == STATE_RUN)
+        if (INPUTCOUNT <= 1 && OUTPUTCOUNT <= 1) {
+          if (btnPressed) {
+            toSetupState();
+          }
+        }
+        else {
+          oled.setFont(runFont);
+          oled.setCursor(25, 0);
+          oled.print(char(127));
+          toIOState();
+        }
+      /** button pressed in IO mode **/
+      else if (state == STATE_IO) {
+        if (selIO == SEL_INPUT && OUTPUTCOUNT > 1) {
+          selIO = SEL_OUTPUT;
+          oled.setFont(runFont);
+          oled.setCursor(24, 0);
+          oled.print(">");
+          oled.setCursor(96, 2);
+          oled.print(char(127));
+          toIOState();
+        }
+        else {
+          storeLast();
+          toRunState();
+        }
+
+      }
+
+      /** button pressed in setup menu **/
+      else if (btnPressed && state == STATE_SETUP) {
+        switch (selSetup) {
+          case SEL_BIAS:
+            setMaxResistanceMode();
+            break;
+          case SEL_MEAS:
+            setMinResistanceMode();
+            break;
+          case SEL_CALIB:
+            errc = doCalibration();
+            if (errc == 100) {
+              oled.setCursor (20, 20);
+              oled.clear();
+              oled.setFont(textFont);
+              oled.print(msgAbort);
+              delay(3000);
+              toRunState();
+              setVolume(volume);
+              setCalibrationRelays(OFF);
+            }
+            else if (errc > 0) {
+              toErrorState();
+            }
+            break;
+          case SEL_EXIT:
+            selSetup = SEL_BIAS;
+            if (!notCalibrated) {
+              oled.clear();
+              toRunState();
+              drawRunDisplay();
+            }
+            else {
+              oled.setCursor (20, 3);
+              oled.clear();
+              oled.setFont(textFont);
+              oled.print(msgNoCalib);
+              delay(1000);
+              toSetupState();
+            }
+            break;
+        }
+      }
+
+      /** button pressed in adjust mode **/
+      else if (btnPressed && state == STATE_CALIB)
+        toSetupState();
+    }
+    #pragma endregion
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // timing
+    #pragma region loop_timing
+    //** timeout selection/menu
+    if ((state == STATE_IO) && millis() - mil_onAction > TIME_EXITSELECT * 1000) {
+      saveIOValues();  //btnpress after modifying I/O, save to EEPROM
+      oled.setFont(textFont);
+      toRunState();
+    }
+
+
+    //** encoder button debounce/release
+    if (digitalRead(PIN_BTN) == HIGH && millis() - mil_onButton > TIME_SWITCHBOUNCE) {
+      btnReleased = true;
+      //mil_onButton = millis();
+    }
+    #pragma endregion
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // feedback to maintain LDR current
+    #pragma region loop_feedback
+    if ((millis() - mil_onSetLDR > TIME_DACSETTLE) && state == STATE_RUN && volume < VOL_MAX_STEP && volume > 1) {
+
+      // LSE
+      word sample = getILSE();
+      deltaSample = int(dataL[volume - 2].i_SE & 32767) - sample;
+      deltaPW = deltaSample > 0 ? 1 : -1;
+      if (deltaPW * deltaSample > abs(deltaPW * getDeltaI(dataL[volume - 2].i_SE) - deltaSample) && dataL[volume - 2].pw_SE > 0 && dataL[volume - 2].pw_SE < 255) {
+        dataL[volume - 2].pw_SE += deltaPW;
+        setLSE(dataL[volume - 2].pw_SE);
+      }
+
+
+      // RSE
+      sample = getIRSE();
+      deltaSample = int(dataR[volume - 2].i_SE & 32767) - sample;
+      deltaPW = deltaSample > 0 ? 1 : -1;
+      if (deltaPW * deltaSample > abs(deltaPW * getDeltaI(dataR[volume - 2].i_SE) - deltaSample) && dataR[volume - 2].pw_SE > 0 && dataR[volume - 2].pw_SE < 255) {
+        dataR[volume - 2].pw_SE += deltaPW;
+        setRSE(dataR[volume - 2].pw_SE);
+      }
+
+
+      // LSH
+      sample = getILSH();
+      deltaSample = int(dataL[volume - 2].i_SH & 32767) - sample;
+      deltaPW = deltaSample > 0 ? 1 : -1;
+      if (deltaPW * deltaSample > abs(deltaPW * getDeltaI(dataL[volume - 2].i_SH) - deltaSample) && dataL[volume - 2].pw_SH > 0 && dataL[volume - 2].pw_SH < 255) {
+        dataL[volume - 2].pw_SH += deltaPW;
+        setLSH(dataL[volume - 2].pw_SH);
+      }
+
+
+      // RSH
+      sample = getIRSH();
+      deltaSample = int(dataR[volume - 2].i_SH & 32767) - sample;
+      deltaPW = deltaSample > 0 ? 1 : -1;
+      if (deltaPW * deltaSample > abs(deltaPW * getDeltaI(dataR[volume - 2].i_SH) - deltaSample) && dataR[volume - 2].pw_SH > 0 && dataR[volume - 2].pw_SH < 255) {
+        dataR[volume - 2].pw_SH += deltaPW;
+        setRSH(dataR[volume - 2].pw_SH);
+      }
+
+      mil_onSetLDR = millis();
+    }
+    #pragma endregion
+
+  }
+  #pragma endregion
 
