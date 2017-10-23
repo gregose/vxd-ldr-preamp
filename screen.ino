@@ -90,7 +90,7 @@ void drawRunDisplay () {
 # endif
 }
 
-void setupMenu () {
+void drawSetupMenu () {
   oled.setFont(menuFont);
   for (byte i = 0; i < 4 ; i++) {
     oled.setCursor(0, i * 2);
