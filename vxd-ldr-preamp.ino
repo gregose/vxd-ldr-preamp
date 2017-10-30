@@ -1,8 +1,12 @@
-#include <PinChangeInt.h>
 #include <EEPROM.h>
+#include <Wire.h>
+
+#include <EnableInterrupt.h>
 #include <Adafruit_MCP23008.h>
+#include <SSD1306Ascii.h>
 #include <SSD1306AsciiWire.h>
 
+#include "screen.h"
 #include "fonts/bar.h"
 #include "fonts/line.h"
 #include "fonts/modern.h"

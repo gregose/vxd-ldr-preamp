@@ -2,7 +2,7 @@
 	path = Arduino-Makefile
 	url = https://github.com/sudar/Arduino-Makefile
 [submodule "lib/SSD1306Ascii"]
-	path = lib/SSD1306Ascii
+	path = lib/SSD1306Ascii-git
 	url = https://github.com/greiman/SSD1306Ascii
 [submodule "lib/Adafruit-MCP23008-library"]
 	path = lib/Adafruit-MCP23008-library
