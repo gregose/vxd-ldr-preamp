@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ "$(uname -s)" = "Darwin" ]; then
+  brew bundle
+else
+  echo "MacOS only right now"
+fi
+
+pip install pyserial
