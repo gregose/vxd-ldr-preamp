@@ -1559,8 +1559,21 @@ void setup() {
   delay(2000);
 
   // test if the relays and LDRs are powered
-  if (getRLSE() + getRRSE() + getRLSH() + getRRSH() > LDR_FULL_MAX * 4) {
-    errc = 20;
+  errc = 0;
+  if (getRLSE() > LDR_FULL_MAX) {
+    errc += 0b0001;
+  }
+  if (getRRSE() > LDR_FULL_MAX) {
+    errc += 0b0010;
+  }
+  if (getRLSH() > LDR_FULL_MAX) {
+    errc += 0b0100;
+  }
+  if (getRRSH() > LDR_FULL_MAX) {
+    errc += 0b1000;
+  }
+
+  if (errc) {
     toErrorState();
   }
   else if ((INPUTCOUNT > 4 && OUTPUTCOUNT > 2) || (INPUTCOUNT > 2 && OUTPUTCOUNT > 4) || (INPUTCOUNT == 3 && OUTPUTCOUNT == 3)) {
