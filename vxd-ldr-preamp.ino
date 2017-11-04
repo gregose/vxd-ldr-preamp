@@ -1525,6 +1525,33 @@ void toggleMute() {
 ////////////////////////////////////////////////////////////////////////////////////////
 //   SETUP
 #pragma region setup
+
+void doTestRelay(char * name, int pin) {
+  oled.clear();
+  oled.setCursor(36, 2);
+  oled.setFont(textFont);
+  oled.print("Testing relay: ");
+  oled.print(name);
+
+  for(int t=0; t < 5; t++) {
+    delay(1000);
+    mcp.digitalWrite(pin, 0);
+    delay(1000);
+    mcp.digitalWrite(pin, 1);
+  }
+}
+
+void doTestRelays() {
+  doTestRelay("CALIB", PIN_EXT_CALIB);
+  doTestRelay("R1", PIN_EXT_R1);
+  doTestRelay("R2", PIN_EXT_R2);
+  doTestRelay("R3", PIN_EXT_R3);
+  doTestRelay("R4", PIN_EXT_R4);
+  doTestRelay("R5", PIN_EXT_R5);
+  doTestRelay("R6", PIN_EXT_R6);
+  doTestRelay("BIAS", PIN_EXT_BIAS);
+}
+
 void setup() {
   Wire.begin();
 
@@ -1557,6 +1584,8 @@ void setup() {
   oled.setCursor((128 - sizeof(msgWelcome4) * oled.fontWidth()) / 2, 6);
   oled.print (msgWelcome4);
   delay(2000);
+
+  doTestRelays();
 
   // test if the relays and LDRs are powered
   errc = 0;
